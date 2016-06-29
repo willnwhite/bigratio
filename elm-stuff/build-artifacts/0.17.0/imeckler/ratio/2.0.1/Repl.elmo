@@ -1,0 +1,19 @@
+var _imeckler$ratio$Repl$t_s_o_l = {ctor: '_Tuple0'};
+var _imeckler$ratio$Repl$gcd_zero_zero = A2(
+	_imeckler$ratio$BigRatio$gcd,
+	_javcasas$elm_integer$Data_Integer$fromInt(0),
+	_javcasas$elm_integer$Data_Integer$fromInt(0));
+var _imeckler$ratio$Repl$k = A2(
+	_javcasas$elm_integer$Data_Integer$mul,
+	_imeckler$ratio$Repl$gcd_zero_zero,
+	_javcasas$elm_integer$Data_Integer$fromInt(1));
+var _imeckler$ratio$Repl$d_e_l_t_r_o_n_3_0_3_0 = A2(
+	_imeckler$ratio$BigRatio$divide,
+	A2(
+		_imeckler$ratio$BigRatio$over,
+		_javcasas$elm_integer$Data_Integer$fromInt(1),
+		_javcasas$elm_integer$Data_Integer$fromInt(2)),
+	A2(
+		_imeckler$ratio$BigRatio$over,
+		_javcasas$elm_integer$Data_Integer$fromInt(3),
+		_javcasas$elm_integer$Data_Integer$fromInt(4)));
