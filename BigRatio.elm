@@ -52,8 +52,7 @@ type BigRational
 -}
 gcd : Integer -> Integer -> Integer
 gcd a b =
-    if b == zero then
-        -- TODO ask Data.Integer's author: use Data.Integer.eq instead of ==? If so, replace == wherever it's not appropriate.
+    if b `eq` zero then
         a
     else
         gcd b (snd (a `unsafeDivmod` b))
@@ -67,7 +66,7 @@ gcd a b =
 -}
 normalize : BigRational -> BigRational
 normalize (BigRatio p q) =
-    if p == zero && q == zero then
+    if p `eq` zero && q `eq` zero then
         BigRatio p q
     else
         let
