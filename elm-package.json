@@ -1,13 +1,13 @@
 {
-    "version": "2.0.1",
-    "summary": "A ratio type for working with rational numbers",
-    "repository": "https://github.com/imeckler/ratio.git",
+    "version": "1.0.0",
+    "summary": "A ratio type for working with big rational numbers",
+    "repository": "https://github.com/willnwhite/bigratio.git",
     "license": "BSD3",
     "source-directories": [
         "."
     ],
     "exposed-modules": [
-        "Ratio"
+        "BigRatio"
     ],
     "dependencies": {
         "elm-lang/core": "4.0.0 <= v < 5.0.0",

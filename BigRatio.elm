@@ -1,20 +1,22 @@
 module BigRatio
     exposing
-        ( gcd
+        ( BigRational
+        , gcd
         , add
         , multiply
         , divide
-          -- , negate
-        , BigRational
+        , negate
         , over
-          -- , denominator
-          -- , numerator
-          -- , split
-          -- , toFloat
-          -- , fromInt
+        , denominator
+        , numerator
+        , split
+        , toFloat
+        , fromInt
+        , fromString
+        , zero
         )
 
-{-| A simple module providing a ratio type for rational numbers
+{-| A module providing a ratio type for big rational numbers. Forked from Izzy Meckler's [Ratio](https://github.com/imeckler/ratio) and dependent on Javier Casas' [elm-integer](https://github.com/javcasas/elm-integer). will@willwhite.website
 
 # Types
 @docs Rational
@@ -34,10 +36,16 @@ module BigRatio
 -}
 
 import Basics exposing (..)
-import Data.Integer exposing (..)
+import Array exposing (..)
+import Data.Integer as I exposing (..)
 
 
-{-| "Arbitrary" (up to `max_int` size) precision fractional numbers. Think of
+-- String is part of a HACK:
+
+import String
+
+
+{-| Arbitrary (infinite digits) precision fractional numbers. Think of
     it as the length of a rigid bar that you've constructed from a bunch of
     initial bars of the same fixed length
     by the operations of gluing bars together and shrinking a
@@ -52,44 +60,110 @@ type BigRational
 -}
 gcd : Integer -> Integer -> Integer
 gcd a b =
-    if b `eq` zero then
+    if b `eq` I.zero || b `eq` minusZeroFromUnsafeDivmod then
         a
     else
         gcd b (snd (a `unsafeDivmod` b))
 
 
 
--- b can't be 0 in the else branch (see the if branch), so Data.Integer.unsafeDivmod will always return (Integer, Integer)
+-- b will never `eq` zero or minusZero in the else branch, so unsafeDivmod will always return (Integer, Integer)
+
+
+minusZeroFromUnsafeDivmod : Integer
+minusZeroFromUnsafeDivmod =
+    snd (I.fromInt -3 `I.unsafeDivmod` I.fromInt 1)
+
+
+
+-- NOTE minusZeroFromUnsafeDivmod returns a minusZero with no magnitude, whereas I.fromString "-0" returns a minusZero with a magnitude of 0.
+-- > snd (I.fromInt -3 `I.unsafeDivmod` I.fromInt 1)
+-- Integer (Negative,Magnitude []) : Data.Integer.Integer
+-- > I.fromString "-0"
+-- Just (Integer (Negative,Magnitude [0])) : Maybe.Maybe Data.Integer.Integer
+-- `eq` says they are the same:
+-- > (Maybe.withDefault I.one (I.fromString "-0")) `I.eq` (snd (I.fromInt -3 `I.unsafeDivmod` I.one))
+-- True : Bool
+-- I don't know if there's an important difference between using either (other than the (TEST: difference) below), but I am using minusZeroFromUnsafeDivmod, rather than I.fromString "-0", as `unsafeDivmod` (Integer (Negative,Magnitude [])) was breaking gcd as it was. (numbers used below as shorthand for Integers):
+-- > minusthree = Data.Integer.fromInt -3
+-- Integer (Negative,Magnitude [3]) : Data.Integer.Integer
+-- > ten = Data.Integer.fromInt 10
+-- Integer (Positive,Magnitude [10]) : Data.Integer.Integer
+-- > minusTenOverThree = ten `BigRatio.over` minusthree
+-- ^C
+-- willwhite (master *) share $  Computation interrupted, any definitions were not completed.
+-- > t
+-- elm-repl: <stdin>: hGetChar: hardware fault (Input/output error)
+-- n^C
+-- willwhite (master *) share $
+{- gcd -3 1 =
+     if 1 `eq` I.zero then
+         -3
+     else
+         gcd 1 (snd (-3 `unsafeDivmod` 1)) -> gcd 1 -0
+
+   gcd 1 -0 =
+       if -0 `eq` I.zero then -- (it doesn't)
+           1
+       else
+           gcd -0 (snd (1 `unsafeDivmod` -0)) -- breaks
+
+-}
+-- TEST (difference):
+--> (I.fromInt -3) `I.unsafeDivmod` (Maybe.withDefault I.one (I.fromString "-0"))
+-- (Integer (Positive,Magnitude [97151,97153,2]),Integer (Negative,Magnitude [3])) : ( Data.Integer.Integer, Data.Integer.Integer )
+-- > (I.fromInt -3) `I.unsafeDivmod` (snd((I.fromInt -3) `I.unsafeDivmod` (I.one)))
+-- (Integer (Positive,Magnitude [97151,97153,97153,2]),Integer (Negative,Magnitude [3])) : ( Data.Integer.Integer, Data.Integer.Integer )
+-- TEST (no difference):
+-- > minusthree = I.fromInt -3
+-- Integer (Negative,Magnitude [3]) : Data.Integer.Integer
+-- > ten = I.fromInt 10
+-- Integer (Positive,Magnitude [10]) : Data.Integer.Integer
+-- > minusTenOverThree = ten `B.over` minusthree
+-- BigRatio (Integer (Negative,Magnitude [10])) (Integer (Positive,Magnitude [3]))
+--     : BigRatio.BigRational
+-- > minusTenOverThree = ten `B.over` minusthree (with (Maybe.withDefault I.one (I.fromString "-0")))
+-- BigRatio (Integer (Negative,Magnitude [10])) (Integer (Positive,Magnitude [3]))
+--     : BigRatio.BigRational
+-- TEST (no difference):
+-- > minusten = I.fromInt -10
+-- Integer (Negative,Magnitude [10]) : Data.Integer.Integer
+-- > minusten `B.over` minusthree
+-- BigRatio (Integer (Negative,Magnitude [10])) (Integer (Negative,Magnitude [3]))
+--     : BigRatio.BigRational
+-- > minusten `B.over` minusthree (with (Maybe.withDefault I.one (I.fromString "-0")))
+-- BigRatio (Integer (Negative,Magnitude [10])) (Integer (Negative,Magnitude [3]))
+--     : BigRatio.BigRational
 
 
 {-| E.g. 4/8 -> 1/2
 -}
 normalize : BigRational -> BigRational
 normalize (BigRatio p q) =
-    if p `eq` zero && q `eq` zero then
+    if (p `eq` I.zero || p `eq` minusZeroFromUnsafeDivmod) && (q `eq` I.zero || q `eq` minusZeroFromUnsafeDivmod) then
         BigRatio p q
     else
         let
             k =
                 (gcd p q)
-                    `mul` (if q `lt` (fromInt 0) then
-                            fromInt -1
+                    `mul` (if q `lt` I.zero then
+                            minusOne
                            else
-                            fromInt 1
+                            one
                           )
         in
             BigRatio (fst (p `unsafeDivmod` k)) (fst (q `unsafeDivmod` k))
 
 
 
--- k can't be 0 as gcd cannot return 0 unless gcd 0 0 and p and q can't be 0 in the else branch, and the conditional expression does not return 0
+-- k can't be 0 as gcd cannot return 0 unless gcd 0 0 and p and q can't be zero or minusZero in the else branch, and the conditional expression in the let expression only returns one or minusOne.
 
 
 {-| Addition. It's like gluing together two bars of the given lengths.
 -}
 add : BigRational -> BigRational -> BigRational
 add (BigRatio a b) (BigRatio c d) =
-    normalize (BigRatio ((a `mul` d) `Data.Integer.add` (b `mul` c)) (b `mul` d))
+    normalize (BigRatio ((a `mul` d) `I.add` (b `mul` c)) (b `mul` d))
 
 
 {-| Multiplication. `multiply x (c / d)` is the length of the bar that you'd get
@@ -109,57 +183,90 @@ divide r (BigRatio c d) =
     multiply r (BigRatio d c)
 
 
-
-{-
-   {-| This doesn't really fit with the bar metaphor but this is multiplication by `-1`.
-   -}
-   negate : Rational -> Rational
-   negate (Ratio a b) =
-       Ratio (-a) b
-
-
-   {-| `over x y` is like `x / y`.
-   -}
+{-| This doesn't really fit with the bar metaphor but this is multiplication by `-1`.
 -}
+negate : BigRational -> BigRational
+negate (BigRatio a b) =
+    BigRatio (a `mul` I.minusOne) b
 
 
+{-| `over x y` is like `x / y`.
+-}
 over : Integer -> Integer -> BigRational
 over x y =
     normalize (BigRatio x y)
 
 
-
-{-
-
-
-   {-| `fromInt x = over x 1`
-   -}
-   fromInt : Int -> Rational
-   fromInt x =
-       x `over` 1
-
-
-   {-| -}
-   numerator : Rational -> Int
-   numerator (Ratio a _) =
-       a
-
-
-   {-| -}
-   denominator : Rational -> Int
-   denominator (Ratio _ b) =
-       b
-
-
-   {-| `split x = (numerator x, denominator x)`
-   -}
-   split : Rational -> ( Int, Int )
-   split (Ratio a b) =
-       ( a, b )
-
-
-   {-| -}
-   toFloat : Rational -> Float
-   toFloat (Ratio a b) =
-       Basics.toFloat a / Basics.toFloat b
+{-| `fromInt x = over x 1`
 -}
+fromInt : Int -> BigRational
+fromInt x =
+    I.fromInt x `over` one
+
+
+{-|
+-}
+fromString : String -> BigRational
+fromString x =
+    let
+        -- 1) convert String to two Strings (numerator and denominator) representing Ints:
+        -- "0.35" -> "35", "100"
+        -- "1.35" -> "135", "100"
+        -- "11.35" -> "1135", "100"
+        -- "0.05" -> "5", "100"
+        -- "12" -> "12", "1" (or don't do non-decimals?)
+        numerator =
+            -- numerator: from first non-decimal point character, to last, excluding decimal point: "0.35" -> "035", "1.35" -> "135", "11.35" -> "1135", "0.05" -> "005", "12" -> "12"
+            -- HACK numerator relies on Data.Integer's parsing:
+            -- > Data.Integer.fromString "005"
+            -- Just (Integer (Positive,Magnitude [5])) : Maybe.Maybe Data.Integer.Integer
+            String.filter (\character -> character /= '.') x
+
+        denominator =
+            -- denominator: from first character after decimal point, to last character: "0.35" -> "100", "1.35" -> "100", "11.35" -> "100", "0.05" -> "100", "12" -> "1"
+            let
+                wholeAndDecimalParts =
+                    String.split "." x
+
+                decimalPart =
+                    Maybe.withDefault "" (Array.get 1 (Array.fromList wholeAndDecimalParts))
+            in
+                String.cons '1' (String.map (\_ -> '0') decimalPart)
+    in
+        -- 2) convert the two Strings to two Data.Integers
+        -- 3) convert the two Data.Integers to a BigRational
+        (Maybe.withDefault I.zero (I.fromString numerator)) `over` (Maybe.withDefault I.one (I.fromString denominator))
+
+
+{-| -}
+numerator : BigRational -> Integer
+numerator (BigRatio a _) =
+    a
+
+
+{-| -}
+denominator : BigRational -> Integer
+denominator (BigRatio _ b) =
+    b
+
+
+{-| `split x = (numerator x, denominator x)`
+-}
+split : BigRational -> ( Integer, Integer )
+split (BigRatio a b) =
+    ( a, b )
+
+
+{-| -}
+toFloat : BigRational -> Float
+toFloat (BigRatio a b) =
+    -- Basics.toFloat a / Basics.toFloat b
+    -- original above, below is a HACK?: instead, make "toInt : Integer -> Int" for elm-integer, then use Basics.toFloat : Int -> Float
+    Result.withDefault 0 (String.toFloat (I.toString a)) / Result.withDefault 1 (String.toFloat (I.toString b))
+
+
+{-| zero
+-}
+zero : BigRational
+zero =
+    fromInt 0
