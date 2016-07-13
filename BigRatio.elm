@@ -19,10 +19,10 @@ module BigRatio
 {-| A module providing a ratio type for big rational numbers. Forked from Izzy Meckler's [Ratio](https://github.com/imeckler/ratio) and dependent on Javier Casas' [elm-integer](https://github.com/javcasas/elm-integer). will@willwhite.website
 
 # Types
-@docs Rational
+@docs BigRational
 
 # Introduction
-@docs over, fromInt
+@docs over, fromInt, fromString
 
 # Operations
 @docs add, multiply, divide, negate
@@ -32,6 +32,9 @@ module BigRatio
 
 # Util
 @docs gcd
+
+# Common numbers
+@docs zero
 
 -}
 
