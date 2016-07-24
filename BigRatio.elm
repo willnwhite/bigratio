@@ -1,3 +1,6 @@
+-- TODO consider using divmod, rather than unsafeDivmod
+
+
 module BigRatio
     exposing
         ( BigRational
@@ -11,6 +14,8 @@ module BigRatio
         , numerator
         , split
         , toFloat
+        , toDecimal
+        , isNegative
         , fromInt
         , fromString
         , zero
@@ -22,16 +27,22 @@ module BigRatio
 @docs BigRational
 
 # Introduction
-@docs over, fromInt, fromString
+@docs over
+
+# From/To
+@docs fromInt, fromString, toFloat, toDecimal
 
 # Operations
 @docs add, multiply, divide, negate
 
 # Elimination
-@docs numerator, denominator, split, toFloat
+@docs numerator, denominator, split
 
 # Util
 @docs gcd
+
+# Value
+@docs isNegative
 
 # Common numbers
 @docs zero
@@ -211,6 +222,7 @@ fromInt x =
 -}
 fromString : String -> BigRational
 fromString x =
+    -- TODO upgrade to return Maybe BigRational
     let
         -- 1) convert String to two Strings (numerator and denominator) representing Ints:
         -- "0.35" -> "35", "100"
@@ -261,15 +273,70 @@ split (BigRatio a b) =
 
 
 {-| -}
+
+
+
+-- TODO upgrade toFloat to return Maybe Float, in case conversion breaks
+
+
 toFloat : BigRational -> Float
 toFloat (BigRatio a b) =
     -- Basics.toFloat a / Basics.toFloat b
-    -- original above, below is a HACK?: instead, make "toInt : Integer -> Int" for elm-integer, then use Basics.toFloat : Int -> Float
+    -- original above, below is a HACK?: instead, make "toInt : Integer -> Int" for elm-integer, then use Basics.toFloat : Int -> Float?
     Result.withDefault 0 (String.toFloat (I.toString a)) / Result.withDefault 1 (String.toFloat (I.toString b))
 
 
-{-| zero
+{-| 1 -> (BigRatio 1 4) -> "0.2"
+    100 -> (BigRatio 1 4) -> "0.25"
 -}
+toDecimal : Int -> BigRational -> String
+
+
+
+-- TODO integrate this line from Fraction.hs: decimal _ (u:-:0) = putStr (show u++"//0")
+
+
+toDecimal digits x =
+    -- as per Fraction.hs decimal http://code.haskell.org/~thielema/numeric-quest/Fraction.hs
+    let
+        num =
+            numerator x
+
+        den =
+            denominator x
+
+        ( u, v ) =
+            Maybe.withDefault ( I.zero, I.zero {- TODO sensible default -} ) <| num `divmod` {- NOTE Data.Integer.divmod v2.0.2 does quotRem (//, rem), not divMod (//, %) https://github.com/javcasas/elm-integer/issues/4 -} den
+
+        g y z m str =
+            if m == 0 then
+                str
+            else
+                let
+                    ( p, q ) =
+                        -- ( (//) y z, rem y z )
+                        Maybe.withDefault ( I.zero, I.zero {- TODO sensible default -} ) <| y `divmod` {- NOTE Data.Integer.divmod v2.0.2 does quotRem (//, rem), not divMod (//, %) https://github.com/javcasas/elm-integer/issues/4 -} z
+                in
+                    if q `eq` I.zero {- remainder 0 -} then
+                        str ++ I.toString p
+                    else
+                        g (q `mul` (I.fromInt 10)) z (m - 1) (str ++ I.toString p)
+    in
+        if digits <= 0 then
+            toDecimal 1 x
+        else if isNegative x {- HACK original: x < 0 -} then
+            g ((I.negate v) `mul` I.fromInt 10) den digits ("-" ++ I.toString (I.negate u) ++ ".")
+        else
+            g (v `mul` (I.fromInt 10)) den digits (I.toString u ++ ".")
+
+
+{-| -}
+isNegative : BigRational -> Bool
+isNegative (BigRatio a b) =
+    xor (I.sign a == Negative) (I.sign b == Negative)
+
+
+{-| -}
 zero : BigRational
 zero =
     fromInt 0
