@@ -6,6 +6,7 @@ module BigRatio
         ( BigRational
         , gcd
         , add
+        , subtract
         , multiply
         , divide
         , negate
@@ -21,7 +22,9 @@ module BigRatio
         , zero
         )
 
-{-| A module providing a ratio type for big rational numbers. Forked from Izzy Meckler's [Ratio](https://github.com/imeckler/ratio) and dependent on Javier Casas' [elm-integer](https://github.com/javcasas/elm-integer). will@willwhite.website
+{-| A module providing a ratio type for big rational numbers. Forked from Izzy Meckler's [Ratio](https://github.com/imeckler/ratio) and dependent on Javier Casas' [elm-integer](https://github.com/javcasas/elm-integer).
+
+will@willwhite.website
 
 # Types
 @docs BigRational
@@ -180,6 +183,13 @@ add (BigRatio a b) (BigRatio c d) =
     normalize (BigRatio ((a `mul` d) `I.add` (b `mul` c)) (b `mul` d))
 
 
+{-| Subtract
+-}
+subtract : BigRational -> BigRational -> BigRational
+subtract a b =
+    add a (negate b)
+
+
 {-| Multiplication. `multiply x (c / d)` is the length of the bar that you'd get
    if you glued `c` copies of a bar of length `x` end-to-end and then shrunk it
    down enough so that `d` copies of the shrunken bar would fit in the big
@@ -286,7 +296,8 @@ toFloat (BigRatio a b) =
     Result.withDefault 0 (String.toFloat (I.toString a)) / Result.withDefault 1 (String.toFloat (I.toString b))
 
 
-{-| 1 -> (BigRatio 1 4) -> "0.2"
+{-|
+    1 -> (BigRatio 1 4) -> "0.2"
     100 -> (BigRatio 1 4) -> "0.25"
 -}
 toDecimal : Int -> BigRational -> String
@@ -309,18 +320,20 @@ toDecimal digits x =
             Maybe.withDefault ( I.zero, I.zero {- TODO sensible default -} ) <| num `divmod` {- NOTE Data.Integer.divmod v2.0.2 does quotRem (//, rem), not divMod (//, %) https://github.com/javcasas/elm-integer/issues/4 -} den
 
         g y z m str =
-            if m == 0 then
-                str
-            else
-                let
-                    ( p, q ) =
-                        -- ( (//) y z, rem y z )
-                        Maybe.withDefault ( I.zero, I.zero {- TODO sensible default -} ) <| y `divmod` {- NOTE Data.Integer.divmod v2.0.2 does quotRem (//, rem), not divMod (//, %) https://github.com/javcasas/elm-integer/issues/4 -} z
-                in
-                    if q `eq` I.zero {- remainder 0 -} then
-                        str ++ I.toString p
-                    else
-                        g (q `mul` (I.fromInt 10)) z (m - 1) (str ++ I.toString p)
+            case m of
+                0 ->
+                    str
+
+                _ ->
+                    let
+                        ( p, q ) =
+                            -- ( (//) y z, rem y z )
+                            Maybe.withDefault ( I.zero, I.zero {- TODO sensible default -} ) <| y `divmod` {- NOTE Data.Integer.divmod v2.0.2 does quotRem (//, rem), not divMod (//, %) https://github.com/javcasas/elm-integer/issues/4 -} z
+                    in
+                        if q `eq` I.zero {- remainder 0 -} then
+                            str ++ I.toString p
+                        else
+                            g (q `mul` (I.fromInt 10)) z (m - 1) (str ++ I.toString p)
     in
         if digits <= 0 then
             toDecimal 1 x
