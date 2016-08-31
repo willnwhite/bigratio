@@ -36,7 +36,7 @@ will@willwhite.website
 @docs fromInt, fromString, toFloat, toDecimal
 
 # Operations
-@docs add, multiply, divide, negate
+@docs add, subtract, multiply, divide, negate
 
 # Elimination
 @docs numerator, denominator, split
